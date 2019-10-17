@@ -5,9 +5,9 @@ import os
 
 from setuptools import find_packages, setup
 
-NAME = 'pyportal'
+NAME = 'nhm-pyportal'
 DESCRIPTION = ''
-URL = 'https://github.com/NaturalHistoryMuseum/pyportal'
+URL = 'https://github.com/NaturalHistoryMuseum/nhm-pyportal'
 EMAIL = 'data@nhm.ac.uk'
 AUTHOR = 'Natural History Museum'
 VERSION = '0.1'

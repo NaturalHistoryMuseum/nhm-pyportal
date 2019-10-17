@@ -1,0 +1,4 @@
+
+        [console_scripts]
+        pyportal=pyportal.cli:cli
+    

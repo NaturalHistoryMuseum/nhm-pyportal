@@ -15,7 +15,7 @@ We have more generic (and comprehensive) API documentation available [here](http
 ## Installation
 
 ```sh
-pip install -e git+git://github.com/NaturalHistoryMuseum/pyportal.git#egg=pyportal
+pip install -e git+git://github.com/NaturalHistoryMuseum/nhm-pyportal.git#egg=pyportal
 ```
 
 
@@ -39,17 +39,16 @@ from pyportal import constants
 # specify any resource you want, but the IDs for the specimens and index lots resources are built in
 resource_id = constants.resources.specimens
 
-# find botany records in the specimens resource
-search = api.records(resource_id, collectionCode='bot')
+# find all records in the specimens resource
+search = api.records(resource_id)
 
-# OR find botany assets (images) in the specimens resource
-search = api.assets(resource_id, collectionCode='bot')
+# OR find all assets (images) in the specimens resource
+search = api.assets(resource_id)
 ```
 
-You can use any of the Data Portal's 
-The search above is equivalent to [this search](https://data.nhm.ac.uk/dataset/56e711e6-c847-4f99-915a-6894bb5c5dea/resource/05ff2255-c38a-40c9-b657-4ccb55ab2feb?filters=collectionCode%3Abot) on the Data Portal website.
+The search above is equivalent to [this search](https://data.nhm.ac.uk/dataset/56e711e6-c847-4f99-915a-6894bb5c5dea/resource/05ff2255-c38a-40c9-b657-4ccb55ab2feb) on the Data Portal website.
 
-There is a helper method to transform a data portal URL (e.g. the one linked above) into a `dict` that can be passed into the search constructor.
+There is a helper method to transform a data portal URL into a `dict` that can be passed into the search constructor.
 
 ```python
 url = 'https://data.nhm.ac.uk/dataset/56e711e6-c847-4f99-915a-6894bb5c5dea/resource/05ff2255-c38a-40c9-b657-4ccb55ab2feb?filters=collectionCode%3Abot'
@@ -61,9 +60,23 @@ print(api.records(constants.resources.specimens, collectionCode='bot').count()) 
 print(api.records(**api.from_url(url)).count())  # 775440
 ```
 
+You can specify the following parameters (all are optional):
+
+- `query`: a free-text search, e.g. `query='bugs'`
+- `sort`: a list of fields and sort directions, e.g. `sort=['country asc', 'family desc']`
+- `fields`: a list of fields to return for each record (leave blank to return all), e.g. `fields=['country', 'family', 'genus']`
+- `offset`: skip the first _n_ results, e.g. `offset=50`
+- `limit`: return only _n_ results _per page_ (defaults to 100), e.g. `limit=10`
+
+Any other keyword arguments will be considered `filters`.
+
+```python
+search = api.records(constants.resources.specimens, query='bugs', sort=['country asc', 'family desc'], fields=['country', 'family', 'genus'], offset=50, limit=10)
+```
+
 ### Viewing results
 
-Iterate through all results using `.all()`:
+Iterate through all results using `.all()` (this ignores `limit`):
 
 ```python
 for record in search.all():
@@ -76,12 +89,15 @@ Or just view the first one with `.first()`:
 print(search.first())
 ```
 
-You could also iterate through entire pages (blocks of records) manually using `.next()`:
+You could also view a page (blocks of records in the size set by `limit`) at a time using `.next()`:
 
 ```python
-while True:
-    for record in search.next():
+try:
+    page = search.next()
+    for record in page:
         print(record)
+except StopIteration:  # raised by search.next() if there's no next page
+    print('No more results.')
 ```
 
 If you just want the total number of records, use `.count()`:

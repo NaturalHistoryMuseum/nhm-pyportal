@@ -13,6 +13,7 @@ class ResultsIterator(object):
         self.offset = offset
         self._original_offset = offset
         self.params = params
+        self._original_params = params
         self.auth = auth
 
     @classmethod
@@ -38,6 +39,7 @@ class ResultsIterator(object):
 
     def _reset(self):
         self.offset = self._original_offset
+        self.params = self._original_params
 
     def next(self):
         try:
@@ -59,13 +61,19 @@ class ResultsIterator(object):
             return result
 
     def all(self):
+        self.params['limit'] = 1000
         while True:
-            for record in self.next():
-                yield record
+            try:
+                for record in self.next():
+                    yield record
+            except StopIteration:
+                break
 
     def first(self):
         self._reset()
+        self.params['limit'] = 1
         page = self.next()
+        self._reset()
         return page[0]
 
     def count(self):

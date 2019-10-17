@@ -3,7 +3,7 @@ import logging
 import urllib.parse
 
 from .constants import URLs
-from .errors import ParameterMissingError, IncorrectURLError
+from .errors import IncorrectURLError, ParameterMissingError
 from .iterators import AssetIterator, ResultsIterator
 
 log = logging.getLogger('pyportal')
@@ -31,6 +31,12 @@ class API(object):
         q = params.get('q', [None])[0]
         if q is not None:
             extracted_params['query'] = q
+        sort = params.get('sort', [])
+        if len(sort) > 0:
+            extracted_params['sort'] = sort
+        fields = params.get('fields', [])
+        if len(fields) > 0:
+            extracted_params['fields'] = fields
         return extracted_params
 
     def _get(self, endpoint, iterator, offset, limit, **kwargs):
@@ -39,15 +45,20 @@ class API(object):
 
     # COMMON ACTIONS
 
-    def records(self, resource_id, offset=0, limit=100, query=None, **filters):
-        return self._get(datastore_search, ResultsIterator, offset, limit, resource_id=resource_id,
-                         filters=filters,
-                         query=query)
+    def records(self, resource_id, offset=0, limit=100, sort=None, fields=None, query=None,
+                **filters):
+        sort = sort or []
+        fields = fields or []
+        return self._get(datastore_search, ResultsIterator, offset, limit, sort=sort, fields=fields,
+                         resource_id=resource_id, filters=filters, q=query)
 
-    def assets(self, resource_id, offset=0, limit=100, query=None, **filters):
+    def assets(self, resource_id, offset=0, limit=100, sort=None, fields=None, query=None,
+               **filters):
         filters['_has_image'] = True
-        return self._get(datastore_search, AssetIterator, offset, limit, resource_id=resource_id,
-                         filters=filters, query=query)
+        sort = sort or []
+        fields = fields or []
+        return self._get(datastore_search, AssetIterator, offset, limit, sort=sort, fields=fields,
+                         resource_id=resource_id, filters=filters, q=query)
 
 
 class Endpoint(object):
@@ -68,17 +79,16 @@ class Endpoint(object):
                 raise ParameterMissingError(f'"{p}" is a required parameter.')
             else:
                 v = params[p]
-                returned_params[p] = json.dumps(v) if isinstance(v, list) or isinstance(v,
-                                                                                        dict) else v
+                returned_params[p] = json.dumps(v) if isinstance(v, dict) else v
         for p in self.optional_params:
             if p in params:
                 v = params[p]
-                returned_params[p] = json.dumps(v) if isinstance(v, list) or isinstance(v,
-                                                                                        dict) else v
+                returned_params[p] = json.dumps(v) if isinstance(v, dict) else v
             else:
                 log.debug(f'Optional parameter "{p}" not found.')
         return returned_params
 
 
 datastore_search = Endpoint('datastore_search', has_records=True, has_assets=True,
-                            required_params=['resource_id'], optional_params=['q', 'filters'])
+                            required_params=['resource_id'],
+                            optional_params=['q', 'filters', 'sort', 'fields'])

@@ -15,7 +15,7 @@ We have more generic (and comprehensive) API documentation available [here](http
 ## Installation
 
 ```sh
-pip install -e git+git://github.com/NaturalHistoryMuseum/nhm-pyportal.git#egg=pyportal
+pip install nhm-pyportal
 ```
 
 

@@ -1,9 +1,8 @@
-import json
 import logging
 import urllib.parse
 
-from .constants import URLs
-from .errors import IncorrectURLError, ParameterMissingError
+from .endpoints import endpoints
+from .errors import IncorrectURLError
 from .iterators import AssetIterator, ResultsIterator
 
 log = logging.getLogger('pyportal')
@@ -15,6 +14,11 @@ class API(object):
 
     @classmethod
     def from_url(cls, url):
+        '''
+        A helper method to extract search parameters from a data portal resource URL.
+        :param url: the URL for a search page on the data portal
+        :return: a dictionary of parameters that can be passed into API.search() as **kwargs
+        '''
         extracted_params = {}
         url = urllib.parse.unquote(url)
         parsed = urllib.parse.urlparse(url)
@@ -25,21 +29,32 @@ class API(object):
         resource_id = parsed.path.split('/resource/')[-1]
         extracted_params['resource_id'] = resource_id
         params = urllib.parse.parse_qs(parsed.query)
-        for f in params.get('filters', []):
-            k, v = f.split(':', 1)
-            extracted_params[k] = v
+        filters = params.get('filters', [None])[0]
+        if filters is not None:
+            for f in filters.split('|'):
+                k, v = f.split(':', 1)
+                extracted_params[k] = v
         q = params.get('q', [None])[0]
         if q is not None:
             extracted_params['query'] = q
-        sort = params.get('sort', [])
-        if len(sort) > 0:
-            extracted_params['sort'] = sort
-        fields = params.get('fields', [])
-        if len(fields) > 0:
-            extracted_params['fields'] = fields
+        sort = params.get('sort', [None])[0]
+        if sort is not None:
+            extracted_params['sort'] = sort.split(',')
+        fields = params.get('fields', [None])[0]
+        if fields is not None:
+            extracted_params['fields'] = fields.split(',')
         return extracted_params
 
-    def _get(self, endpoint, iterator, offset, limit, **kwargs):
+    def _get_result_iterator(self, endpoint, iterator, offset, limit, **kwargs):
+        '''
+        Common method to format parameters and return a results iterator.
+        :param endpoint: the target endpoint
+        :param iterator: the type of results iterator, e.g. ResultsIterator
+        :param offset: skip n records
+        :param limit: number of results per page
+        :param kwargs: any other arguments, e.g. query, filters
+        :return: a ResultIterator (or subclass) instance
+        '''
         params = endpoint.format_params(**kwargs)
         return iterator(endpoint.url, auth=self.key, offset=offset, limit=limit, **params)
 
@@ -47,48 +62,38 @@ class API(object):
 
     def records(self, resource_id, offset=0, limit=100, sort=None, fields=None, query=None,
                 **filters):
+        '''
+        Use the datastore_search endpoint to search for records in a resource.
+        :param resource_id: the id of the resource, i.e. the id after /resource/ in the URL
+        :param offset: skip n records (optional)
+        :param limit: number of results per page (optional)
+        :param sort: list of fields and directions (asc, desc) to sort the records by (optional)
+        :param fields: list of fields to return, default is all (optional)
+        :param query: free text search (optional)
+        :param filters: filter by record attributes
+        :return: a ResultIterator instance
+        '''
         sort = sort or []
         fields = fields or []
-        return self._get(datastore_search, ResultsIterator, offset, limit, sort=sort, fields=fields,
-                         resource_id=resource_id, filters=filters, q=query)
+        return self._get_result_iterator(endpoints.datastore_search, ResultsIterator, offset, limit,
+                                         sort=sort, fields=fields, resource_id=resource_id,
+                                         filters=filters, q=query)
 
-    def assets(self, resource_id, offset=0, limit=100, sort=None, fields=None, query=None,
-               **filters):
+    def assets(self, resource_id, offset=0, limit=100, sort=None, query=None, **filters):
+        '''
+        Use the datastore_search endpoint to search for assets attached to records in a resource. Ignores records without images.
+        :param resource_id: the id of the resource, i.e. the id after /resource/ in the URL
+        :param offset: skip n records (optional)
+        :param limit: number of results per page (optional)
+        :param sort: list of fields and directions (asc, desc) to sort the records by (
+        optional)
+        :param query: free text search (optional)
+        :param filters: filter by record attributes
+        :return: an AssetIterator instance
+        '''
         filters['_has_image'] = True
         sort = sort or []
-        fields = fields or []
-        return self._get(datastore_search, AssetIterator, offset, limit, sort=sort, fields=fields,
-                         resource_id=resource_id, filters=filters, q=query)
-
-
-class Endpoint(object):
-    def __init__(self, endpoint, requires_auth=False, has_records=False, has_assets=False,
-                 required_params=None, optional_params=None):
-        self.endpoint = endpoint
-        self.url = URLs.base_url + '/action/' + endpoint
-        self.requires_auth = requires_auth
-        self.has_records = has_records
-        self.has_assets = has_assets
-        self.required_params = required_params or []
-        self.optional_params = optional_params or []
-
-    def format_params(self, **params):
-        returned_params = {}
-        for p in self.required_params:
-            if p not in params:
-                raise ParameterMissingError(f'"{p}" is a required parameter.')
-            else:
-                v = params[p]
-                returned_params[p] = json.dumps(v) if isinstance(v, dict) else v
-        for p in self.optional_params:
-            if p in params:
-                v = params[p]
-                returned_params[p] = json.dumps(v) if isinstance(v, dict) else v
-            else:
-                log.debug(f'Optional parameter "{p}" not found.')
-        return returned_params
-
-
-datastore_search = Endpoint('datastore_search', has_records=True, has_assets=True,
-                            required_params=['resource_id'],
-                            optional_params=['q', 'filters', 'sort', 'fields'])
+        fields = ['_id', 'associatedMedia']
+        return self._get_result_iterator(endpoints.datastore_search, AssetIterator, offset, limit,
+                                         sort=sort, fields=fields, resource_id=resource_id,
+                                         filters=filters, q=query)

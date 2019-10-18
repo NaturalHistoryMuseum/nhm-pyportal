@@ -10,7 +10,7 @@ Description: # pyportal
         
         A Python wrapper around the API for the Natural History Museum's [Data Portal](https://data.nhm.ac.uk).
         
-        This module is new and under development, so does not include all actions available through the API; it prioritises the record search functionality.
+        This module is new and under development, so does not include all actions available through the API; it prioritises the record search functionality. It is liable to change dramatically between versions.
         
         We have more generic (and comprehensive) API documentation available [here](https://naturalhistorymuseum.github.io/dataportal-docs).
         

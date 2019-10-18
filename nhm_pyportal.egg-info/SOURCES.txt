@@ -9,5 +9,6 @@ nhm_pyportal.egg-info/top_level.txt
 pyportal/__init__.py
 pyportal/api.py
 pyportal/constants.py
+pyportal/endpoints.py
 pyportal/errors.py
 pyportal/iterators.py
